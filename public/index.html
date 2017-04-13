@@ -80,22 +80,21 @@
     }
 
     function drawSpectrum() {
-      var canvas = document.getElementById('canvas'),
-          cwidth = canvas.width,
-          cheight = canvas.height - 2,
-          meterWidth = 10, //频谱条宽度
-          gap = 2, //频谱条间距
-          capHeight = 2,
-          capStyle = '#fff',
-          meterNum = 800 / (10 + 2), //频谱条数量
-          capYPositionArray = []; //将上一画面各帽头的位置保存到这个数组
+      var canvas = document.getElementById('canvas');
+      var cwidth = canvas.width;
+      var cheight = canvas.height - 2;
+      var meterWidth = 10;
+      var gap = 2;
+      var capHeight = 2;
+      var capStyle = '#fff';
+      var meterNum = 800 / (10 + 2);
+      var capYPositionArray = [];
       ctx = canvas.getContext('2d'),
       gradient = ctx.createLinearGradient(0, 0, 0, 300);
       gradient.addColorStop(1, '#0f0');
       gradient.addColorStop(0.5, '#ff0');
       gradient.addColorStop(0, '#f00');
       var drawMeter = function() {
-        console.log('dwdw');
         var array = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(array);
         var step = Math.round(array.length / meterNum);
