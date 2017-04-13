@@ -1,0 +1,77 @@
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+    <meta charset="utf-8" />  
+    <title>Your page title</title>  
+</head>  
+<body>  
+  <input type="file" onchange="handleFiles(this.files)"/>
+  <br/>
+  开始秒数: <input type="text" id="headTime" value="0" />
+  <br/>
+  距结束秒数: <input type="text" id="tailTime" value="0" />
+  <br/>
+  <button id="play" disabled onclick="onPlayClick.call(this, event);">播放</button>
+  <script>
+    var audioCtx = new (window.AudioContext ||window.webkitAudioContext)();
+    var source = null;
+    var fileBuffer = null;
+    var playButton = document.getElementById('play');
+
+    function handleFiles(files) {
+      if(files.length) {
+        var fr = new FileReader();
+        fr.onload = function(e) {
+          fileBuffer = e.target.result;
+          playButton.disabled = false;
+        }
+        fr.onerror = function(e) {
+          playButton.disabled = true;
+        }
+        fr.readAsArrayBuffer(files[0]);
+      } else {
+        playButton.disabled = true;
+      }
+    }
+
+    function onPlayClick() {
+      var headTime = document.getElementById('headTime').value;
+      var tailTime = document.getElementById('tailTime').value;
+      clipAudio(fileBuffer, +headTime, +tailTime);
+    }
+
+    function clipAudio(fileBuffer, headTime, tailTime) {
+      if(source != null) {
+        source.stop();
+        source.disconnect();
+      }
+      audioCtx.decodeAudioData(fileBuffer, function(audioBuffer) {
+        if (headTime + tailTime >= audioBuffer.duration) {
+          return alert('请输入正确的截取秒数');
+        }
+        var channels = audioBuffer.numberOfChannels;
+        var frameCount = audioBuffer.length;
+        var fps = frameCount / audioBuffer.duration;
+        var startFrame = fps * headTime;
+        var endFrame = fps * (audioBuffer.duration - tailTime);
+        var newAudioBuffer = audioCtx.createBuffer(channels, endFrame - startFrame, audioBuffer.sampleRate);
+        for (var channel = 0; channel < channels; channel++) {
+          var originalFbuffer = audioBuffer.getChannelData(channel);
+          var nowBuffering = newAudioBuffer.getChannelData(channel);
+          for(var i = startFrame, j = 0; i < endFrame; i++, j++) {
+            nowBuffering[j] = originalFbuffer[i];
+          }
+        }
+        source = audioCtx.createBufferSource();
+        source.onended = function(){
+          console.log('结束了');
+        }
+        source.buffer = newAudioBuffer;
+        source.connect(audioCtx.destination);
+        source.start();
+      });
+    }
+
+  </script>
+</body>  
+</html>
