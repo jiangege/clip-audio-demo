@@ -21,6 +21,7 @@
     var audioBuffer = null;
     var playButton = document.getElementById('play');
     var analyser = audioCtx.createAnalyser();
+    var animationId = null;
     function handleFiles(files) {
       if(files.length) {
         var fr = new FileReader();
@@ -53,8 +54,9 @@
         try {
           source.stop();
           source.disconnect();
-          analyser.disconnect();
-        } catch(e) {}
+        } catch(e) {
+          console.log(e);
+        }
       }
       var channels = audioBuffer.numberOfChannels;
       var frameCount = audioBuffer.length;
@@ -73,15 +75,17 @@
       source.onended = function(){
         console.log('结束了');
       }
+      console.log(analyser)
       source.buffer = newAudioBuffer;
       source.connect(analyser);
-      source.connect(audioCtx.destination);
       analyser.connect(audioCtx.destination);
+      source.connect(audioCtx.destination);
       source.start();
       drawSpectrum();
     }
 
     function drawSpectrum() {
+      cancelAnimationFrame(animationId);
       var canvas = document.getElementById('canvas');
       var cwidth = canvas.width;
       var cheight = canvas.height - 2;
@@ -91,18 +95,20 @@
       var capStyle = '#fff';
       var meterNum = 800 / (10 + 2);
       var capYPositionArray = [];
-      ctx = canvas.getContext('2d'),
+      ctx = canvas.getContext('2d');
       gradient = ctx.createLinearGradient(0, 0, 0, 300);
       gradient.addColorStop(1, '#0f0');
       gradient.addColorStop(0.5, '#ff0');
       gradient.addColorStop(0, '#f00');
+      ctx.fillRect(0, 10, 100, 100);
       var drawMeter = function() {
-        var array = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(array);
-        var step = Math.round(array.length / meterNum);
+        var ar = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(ar);
+        console.log(ar)
+        var step = Math.round(ar.length / meterNum);
         ctx.clearRect(0, 0, cwidth, cheight);
         for (var i = 0; i < meterNum; i++) {
-          var value = array[i * step];
+          var value = ar[i * step];
           if (capYPositionArray.length < Math.round(meterNum)) {
             capYPositionArray.push(value); 
           };
@@ -116,9 +122,9 @@
           ctx.fillStyle = gradient;
           ctx.fillRect(i * 12, cheight - value + capHeight, meterWidth, cheight);
         }
-        requestAnimationFrame(drawMeter);
+        animationId = requestAnimationFrame(drawMeter);
       }
-      requestAnimationFrame(drawMeter);
+      animationId = requestAnimationFrame(drawMeter);
     }
 
   </script>
