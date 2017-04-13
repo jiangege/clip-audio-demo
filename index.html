@@ -46,8 +46,11 @@
 
     function clipAudio(fileBuffer, headTime, tailTime) {
       if(source != null) {
-        source.stop();
-        source.disconnect();
+        try {
+          source.stop();
+          source.disconnect();
+        } catch(e) {}
+        
       }
       audioCtx.decodeAudioData(fileBuffer, function(audioBuffer) {
         if (headTime + tailTime >= audioBuffer.duration) {
