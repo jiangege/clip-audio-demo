@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>  
 <body>  
+  <div id="visualizer_wrapper">
+    <canvas id='canvas' width="800" height="350"></canvas>
+  </div>
   <input type="file" onchange="handleFiles(this.files)" accept="audio/mpeg "/>
   <br/>
   开始秒数: <input type="text" id="headTime" value="0" />
@@ -17,6 +20,7 @@
     var source = null;
     var fileBuffer = null;
     var playButton = document.getElementById('play');
+    var analyser = audioCtx.createAnalyser();
 
     function handleFiles(files) {
       if(files.length) {
@@ -56,10 +60,10 @@
         var endFrame = fps * (audioBuffer.duration - tailTime);
         var newAudioBuffer = audioCtx.createBuffer(channels, endFrame - startFrame, audioBuffer.sampleRate);
         for (var channel = 0; channel < channels; channel++) {
-          var originalFbuffer = audioBuffer.getChannelData(channel);
+          var originalBuffering = audioBuffer.getChannelData(channel);
           var nowBuffering = newAudioBuffer.getChannelData(channel);
           for(var i = startFrame, j = 0; i < endFrame; i++, j++) {
-            nowBuffering[j] = originalFbuffer[i];
+            nowBuffering[j] = originalBuffering[i];
           }
         }
         source = audioCtx.createBufferSource();
@@ -67,9 +71,53 @@
           console.log('结束了');
         }
         source.buffer = newAudioBuffer;
+        source.connect(analyser);
         source.connect(audioCtx.destination);
-        source.start();
+        analyser.connect(audioCtx.destination)
+        source.start(0);
+        drawSpectrum();
       });
+    }
+
+    function drawSpectrum() {
+      var canvas = document.getElementById('canvas'),
+          cwidth = canvas.width,
+          cheight = canvas.height - 2,
+          meterWidth = 10, //频谱条宽度
+          gap = 2, //频谱条间距
+          capHeight = 2,
+          capStyle = '#fff',
+          meterNum = 800 / (10 + 2), //频谱条数量
+          capYPositionArray = []; //将上一画面各帽头的位置保存到这个数组
+      ctx = canvas.getContext('2d'),
+      gradient = ctx.createLinearGradient(0, 0, 0, 300);
+      gradient.addColorStop(1, '#0f0');
+      gradient.addColorStop(0.5, '#ff0');
+      gradient.addColorStop(0, '#f00');
+      var drawMeter = function() {
+        console.log('dwdw');
+        var array = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(array);
+        var step = Math.round(array.length / meterNum);
+        ctx.clearRect(0, 0, cwidth, cheight);
+        for (var i = 0; i < meterNum; i++) {
+          var value = array[i * step];
+          if (capYPositionArray.length < Math.round(meterNum)) {
+            capYPositionArray.push(value); 
+          };
+          ctx.fillStyle = capStyle;
+          if (value < capYPositionArray[i]) { 
+            ctx.fillRect(i * 12, cheight - (--capYPositionArray[i]), meterWidth, capHeight);
+          } else {
+            ctx.fillRect(i * 12, cheight - value, meterWidth, capHeight);
+            capYPositionArray[i] = value;
+          };
+          ctx.fillStyle = gradient;
+          ctx.fillRect(i * 12, cheight - value + capHeight, meterWidth, cheight);
+        }
+        requestAnimationFrame(drawMeter);
+      }
+      requestAnimationFrame(drawMeter);
     }
 
   </script>
