@@ -18,16 +18,17 @@
   <script>
     var audioCtx = new (window.AudioContext ||window.webkitAudioContext)();
     var source = null;
-    var fileBuffer = null;
+    var audioBuffer = null;
     var playButton = document.getElementById('play');
     var analyser = audioCtx.createAnalyser();
-
     function handleFiles(files) {
       if(files.length) {
         var fr = new FileReader();
         fr.onload = function(e) {
-          fileBuffer = e.target.result;
-          playButton.disabled = false;
+          audioCtx.decodeAudioData(e.target.result, function(_audioBuffer) {
+            audioBuffer = _audioBuffer;
+            playButton.disabled = false;
+          });
         }
         fr.onerror = function(e) {
           playButton.disabled = true;
@@ -41,45 +42,42 @@
     function onPlayClick() {
       var headTime = document.getElementById('headTime').value;
       var tailTime = document.getElementById('tailTime').value;
-      clipAudio(fileBuffer, +headTime, +tailTime);
+      clipAudio(audioBuffer, +headTime, +tailTime);
     }
 
-    function clipAudio(fileBuffer, headTime, tailTime) {
+    function clipAudio(audioBuffer, headTime, tailTime) {
+      if (headTime + tailTime >= audioBuffer.duration) {
+        return alert('请输入正确的截取秒数');
+      }
       if(source != null) {
         try {
           source.stop();
           source.disconnect();
         } catch(e) {}
-        
       }
-      audioCtx.decodeAudioData(fileBuffer, function(audioBuffer) {
-        if (headTime + tailTime >= audioBuffer.duration) {
-          return alert('请输入正确的截取秒数');
+      var channels = audioBuffer.numberOfChannels;
+      var frameCount = audioBuffer.length;
+      var fps = frameCount / audioBuffer.duration;
+      var startFrame = fps * headTime;
+      var endFrame = fps * (audioBuffer.duration - tailTime);
+      var newAudioBuffer = audioCtx.createBuffer(channels, endFrame - startFrame, audioBuffer.sampleRate);
+      for (var channel = 0; channel < channels; channel++) {
+        var originalBuffering = audioBuffer.getChannelData(channel);
+        var nowBuffering = newAudioBuffer.getChannelData(channel);
+        for(var i = startFrame, j = 0; i < endFrame; i++, j++) {
+          nowBuffering[j] = originalBuffering[i];
         }
-        var channels = audioBuffer.numberOfChannels;
-        var frameCount = audioBuffer.length;
-        var fps = frameCount / audioBuffer.duration;
-        var startFrame = fps * headTime;
-        var endFrame = fps * (audioBuffer.duration - tailTime);
-        var newAudioBuffer = audioCtx.createBuffer(channels, endFrame - startFrame, audioBuffer.sampleRate);
-        for (var channel = 0; channel < channels; channel++) {
-          var originalBuffering = audioBuffer.getChannelData(channel);
-          var nowBuffering = newAudioBuffer.getChannelData(channel);
-          for(var i = startFrame, j = 0; i < endFrame; i++, j++) {
-            nowBuffering[j] = originalBuffering[i];
-          }
-        }
-        source = audioCtx.createBufferSource();
-        source.onended = function(){
-          console.log('结束了');
-        }
-        source.buffer = newAudioBuffer;
-        source.connect(analyser);
-        source.connect(audioCtx.destination);
-        analyser.connect(audioCtx.destination)
-        source.start(0);
-        drawSpectrum();
-      });
+      }
+      source = audioCtx.createBufferSource();
+      source.onended = function(){
+        console.log('结束了');
+      }
+      source.buffer = newAudioBuffer;
+      source.connect(analyser);
+      source.connect(audioCtx.destination);
+      analyser.connect(audioCtx.destination)
+      source.start(0);
+      drawSpectrum();
     }
 
     function drawSpectrum() {
